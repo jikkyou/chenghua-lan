@@ -272,8 +272,12 @@ pub async fn start_message_server(state: Arc<Mutex<NetworkState>>, app_handle: A
                                                 "type": "message"
                                             }));
                                         }
-                                        NetworkMessage::File { id, from, from_name, to, file_name, file_size, timestamp } => {
+                                        NetworkMessage::File { id, from, from_name, to: _, file_name, file_size, timestamp } => {
                                             log::info!("收到文件请求: {} from {}", file_name, from_name);
+                                            
+                                            let file_id = id.clone();
+                                            let file_from = from.clone();
+                                            let file_from_name = from_name.clone();
                                             
                                             // 检查是否自动接收
                                             let auto_receive = state.lock().unwrap().auto_receive.lock().unwrap().clone();
@@ -281,12 +285,12 @@ pub async fn start_message_server(state: Arc<Mutex<NetworkState>>, app_handle: A
                                             if auto_receive {
                                                 // 自动接收，发送接受响应
                                                 let accept_msg = NetworkMessage::FileAccept {
-                                                    id: id.clone(),
+                                                    id: file_id.clone(),
                                                     from: state.lock().unwrap().device_id.clone(),
-                                                    to: from.clone(),
+                                                    to: file_from.clone(),
                                                 };
                                                 if let Ok(json) = serde_json::to_string(&accept_msg) {
-                                                    let addr = format!("{}:{}", get_local_ip(from.clone()).unwrap_or_default(), FILE_PORT);
+                                                    let addr = format!("{}:{}", get_local_ip(file_from.clone()).unwrap_or_default(), FILE_PORT);
                                                     if let Ok(mut stream) = TcpStream::connect(&addr).await {
                                                         let _ = stream.write_all(json.as_bytes()).await;
                                                     }
@@ -294,9 +298,9 @@ pub async fn start_message_server(state: Arc<Mutex<NetworkState>>, app_handle: A
                                                 
                                                 // 通知前端开始接收文件
                                                 let _ = app.emit("file-receiving", serde_json::json!({
-                                                    "id": id,
-                                                    "from": from,
-                                                    "fromName": from_name,
+                                                    "id": file_id,
+                                                    "from": file_from,
+                                                    "fromName": file_from_name,
                                                     "fileName": file_name,
                                                     "fileSize": file_size,
                                                     "timestamp": timestamp,
@@ -304,10 +308,10 @@ pub async fn start_message_server(state: Arc<Mutex<NetworkState>>, app_handle: A
                                             } else {
                                                 // 存储待处理的文件请求
                                                 {
-                                                    state.lock().unwrap().pending_files.lock().unwrap().insert(id.clone(), FileTransferRequest {
-                                                        id,
-                                                        from: from.clone(),
-                                                        from_name: from_name.clone(),
+                                                    state.lock().unwrap().pending_files.lock().unwrap().insert(file_id.clone(), FileTransferRequest {
+                                                        id: file_id.clone(),
+                                                        from: file_from.clone(),
+                                                        from_name: file_from_name.clone(),
                                                         to: state.lock().unwrap().device_id.clone(),
                                                         file_name: file_name.clone(),
                                                         file_size,
@@ -317,22 +321,22 @@ pub async fn start_message_server(state: Arc<Mutex<NetworkState>>, app_handle: A
                                                 
                                                 // 通知前端有文件请求
                                                 let _ = app.emit("file-request", serde_json::json!({
-                                                    "id": id,
-                                                    "from": from,
-                                                    "fromName": from_name,
+                                                    "id": file_id,
+                                                    "from": file_from,
+                                                    "fromName": file_from_name,
                                                     "fileName": file_name,
                                                     "fileSize": file_size,
                                                     "timestamp": timestamp,
                                                 }));
                                             }
                                         }
-                                        NetworkMessage::FileAccept { id, from, to } => {
+                                        NetworkMessage::FileAccept { id, from, to: _ } => {
                                             let _ = app.emit("file-accepted", serde_json::json!({
                                                 "id": id,
                                                 "from": from,
                                             }));
                                         }
-                                        NetworkMessage::FileReject { id, from, to } => {
+                                        NetworkMessage::FileReject { id, from, to: _ } => {
                                             let _ = app.emit("file-rejected", serde_json::json!({
                                                 "id": id,
                                                 "from": from,
@@ -368,38 +372,40 @@ pub async fn start_file_server(state: Arc<Mutex<NetworkState>>, app_handle: AppH
 
     loop {
         match listener.accept().await {
-            Ok((mut stream, from)) => {
+            Ok((mut stream, _from)) => {
                 let app = app_handle.clone();
                 let state = state.clone();
                 tokio::spawn(async move {
-                    // 先读取文件元数据
+                    // 先读取文件元数据（固定1024字节）
                     let mut meta_buf = [0u8; 1024];
                     match stream.read(&mut meta_buf).await {
-                        Ok(len) => {
-                            if let Ok(json_str) = std::str::from_utf8(&meta_buf[..len]) {
-                                if let Ok(meta) = serde_json::from_str::<NetworkMessage>(json_str) {
-                                    if let NetworkMessage::File { id, from, from_name: _, to: _, file_name, file_size: _, timestamp: _ } = meta {
-                                        // 读取文件内容
-                                        let mut file_data = Vec::new();
-                                        stream.read_to_end(&mut file_data).await.ok();
-                                        
-                                        // 保存文件
-                                        let receive_folder = state.lock().unwrap().receive_folder.lock().unwrap().clone();
-                                        let save_path = PathBuf::from(&receive_folder).join(&file_name);
-                                        
-                                        match fs::write(&save_path, &file_data) {
-                                            Ok(_) => {
-                                                log::info!("文件接收成功: {}", save_path.display());
-                                                let _ = app.emit("file-received", serde_json::json!({
-                                                    "id": id,
-                                                    "from": from,
-                                                    "fileName": file_name,
-                                                    "savePath": save_path.display().to_string(),
-                                                }));
-                                            }
-                                            Err(e) => {
-                                                log::error!("文件保存失败: {}", e);
-                                            }
+                        Ok(_len) => {
+                            if let Ok(json_str) = std::str::from_utf8(&meta_buf) {
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
+                                    let id = json["id"].as_str().unwrap_or("").to_string();
+                                    let from = json["from"].as_str().unwrap_or("").to_string();
+                                    let file_name = json["file_name"].as_str().unwrap_or("unknown").to_string();
+                                    
+                                    // 读取文件内容
+                                    let mut file_data = Vec::new();
+                                    stream.read_to_end(&mut file_data).await.ok();
+                                    
+                                    // 保存文件
+                                    let receive_folder = state.lock().unwrap().receive_folder.lock().unwrap().clone();
+                                    let save_path = PathBuf::from(&receive_folder).join(&file_name);
+                                    
+                                    match fs::write(&save_path, &file_data) {
+                                        Ok(_) => {
+                                            log::info!("文件接收成功: {}", save_path.display());
+                                            let _ = app.emit("file-received", serde_json::json!({
+                                                "id": id,
+                                                "from": from,
+                                                "fileName": file_name,
+                                                "savePath": save_path.display().to_string(),
+                                            }));
+                                        }
+                                        Err(e) => {
+                                            log::error!("文件保存失败: {}", e);
                                         }
                                     }
                                 }
@@ -480,17 +486,18 @@ pub async fn send_file_request(to_ip: String, file_name: String, file_size: u64,
 }
 
 pub async fn send_file(to_ip: String, file_id: String, from_id: String, file_name: String, file_data: Vec<u8>) -> Result<(), String> {
-    let msg = NetworkMessage::File {
-        id: file_id,
-        from: from_id,
-        from_name: String::new(),
-        to: String::new(),
-        file_name,
-        file_size: file_data.len() as u64,
-        timestamp: 0,
-    };
+    let file_size = file_data.len();
+    let json = serde_json::json!({
+        "type": "file",
+        "id": file_id,
+        "from": from_id,
+        "from_name": "",
+        "to": "",
+        "file_name": file_name,
+        "file_size": file_size,
+        "timestamp": 0
+    }).to_string();
     
-    let json = serde_json::to_string(&msg).map_err(|e| e.to_string())?;
     let addr = format!("{}:{}", to_ip, FILE_PORT);
     
     let mut stream = TcpStream::connect(&addr).await.map_err(|e| e.to_string())?;
