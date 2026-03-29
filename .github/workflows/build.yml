@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,6 +14,7 @@ jobs:
   build:
     strategy:
       matrix:
+        platform: ['macos-latest', 'windows-latest']
         include:
           - platform: 'macos-latest'
             target: 'aarch64-apple-darwin'
@@ -54,35 +56,3 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
-
-  build-windows-only:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: 'x86_64-pc-windows-msvc'
-
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.sha }}
-          releaseName: '成华县过县 v__VERSION__'
-          releaseBody: 'Windows x64 版本'
-          releaseDraft: true
-          prerelease: false
-          args: --target x86_64-pc-windows-msvc --bundles nsis
