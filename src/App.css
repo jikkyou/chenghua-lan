@@ -256,3 +256,125 @@ body {
   background: #ccc;
   cursor: not-allowed;
 }
+
+/* 文件传输样式 */
+.btn-file {
+  margin-left: auto;
+  padding: 6px 12px;
+  background: var(--secondary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.btn-file:hover {
+  background: #0891b2;
+}
+
+.messages.dragging {
+  background: rgba(244, 63, 94, 0.1);
+}
+
+.drop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(244, 63, 94, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px dashed var(--primary);
+  border-radius: 8px;
+  margin: 10px;
+}
+
+.drop-text {
+  font-size: 18px;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.message.system {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  text-align: center;
+  max-width: 100%;
+}
+
+.file-requests {
+  padding: 12px 24px;
+  background: #fff7ed;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.file-request-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.file-request-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-request-info .file-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.file-request-info .file-size {
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.file-request-info .from-name {
+  font-size: 11px;
+  color: var(--secondary);
+}
+
+.file-request-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-accept, .btn-reject {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.btn-accept {
+  background: var(--accent);
+  color: white;
+}
+
+.btn-accept:hover {
+  background: #16a34a;
+}
+
+.btn-reject {
+  background: #e5e7eb;
+  color: var(--text);
+}
+
+.btn-reject:hover {
+  background: #d1d5db;
+}
