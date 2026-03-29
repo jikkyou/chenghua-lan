@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "成华县过县",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "identifier": "com.chenghua.lan",
   "build": {
     "frontendDist": "../dist",
@@ -25,7 +25,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -136,6 +136,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(move |app| {
             let handle = app.handle().clone();
             let state = net_state_clone.clone();

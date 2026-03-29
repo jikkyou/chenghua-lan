@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
+import { readFile } from '@tauri-apps/plugin-fs';
 import { Message } from '../types';
 
 interface Props {
@@ -260,23 +261,21 @@ function ChatPanel({ deviceId, deviceIp, deviceName }: Props) {
         const confirmed = window.confirm(`确定发送文件 "${fileName}" 给 ${deviceName} 吗？`);
         if (!confirmed) continue;
         
-        // 读取文件
-        const response = await fetch(`file://${filePath}`);
-        const blob = await response.blob();
-        const arrayBuffer = await blob.arrayBuffer();
-        const fileData = Array.from(new Uint8Array(arrayBuffer));
-        
         try {
+          // 使用 fs 插件读取文件
+          const fileContent = await readFile(filePath);
+          const fileData = Array.from(fileContent);
+          
           const fileId = await invoke<string>('send_file_request', {
             toIp: deviceIp,
             fileName,
-            fileSize: blob.size,
+            fileSize: fileContent.length,
           });
           
           setPendingFiles(prev => [...prev, {
             id: fileId,
             fileName,
-            fileSize: blob.size,
+            fileSize: fileContent.length,
             fileData,
             progress: 0,
           }]);
@@ -294,7 +293,7 @@ function ChatPanel({ deviceId, deviceIp, deviceName }: Props) {
             from: 'self',
             fromName: '我',
             to: deviceId,
-            content: `正在发送文件: ${fileName} (${formatFileSize(blob.size)})`,
+            content: `正在发送文件: ${fileName} (${formatFileSize(fileContent.length)})`,
             timestamp: Date.now(),
           }]);
         } catch (e) {
